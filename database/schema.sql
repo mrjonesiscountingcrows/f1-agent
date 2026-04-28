@@ -1,5 +1,11 @@
+CREATE SEQUENCE IF NOT EXISTS races_id_seq;
+CREATE SEQUENCE IF NOT EXISTS results_id_seq;
+CREATE SEQUENCE IF NOT EXISTS laps_id_seq;
+CREATE SEQUENCE IF NOT EXISTS driver_standings_id_seq;
+CREATE SEQUENCE IF NOT EXISTS constructor_standings_id_seq;
+
 CREATE TABLE IF NOT EXISTS races (
-    id          INTEGER PRIMARY KEY,
+    id          BIGINT PRIMARY KEY DEFAULT nextval('races_id_seq'),
     year        INTEGER,
     round       INTEGER,
     gp_name     TEXT,
@@ -10,8 +16,8 @@ CREATE TABLE IF NOT EXISTS races (
 );
 
 CREATE TABLE IF NOT EXISTS results (
-    id              INTEGER PRIMARY KEY,
-    race_id         INTEGER REFERENCES races(id),
+    id              BIGINT PRIMARY KEY DEFAULT nextval('results_id_seq'),
+    race_id         BIGINT REFERENCES races(id),
     position        INTEGER,
     driver_code     TEXT,
     driver_name     TEXT,
@@ -22,8 +28,8 @@ CREATE TABLE IF NOT EXISTS results (
 );
 
 CREATE TABLE IF NOT EXISTS laps (
-    id              INTEGER PRIMARY KEY,
-    race_id         INTEGER REFERENCES races(id),
+    id              BIGINT PRIMARY KEY DEFAULT nextval('laps_id_seq'),
+    race_id         BIGINT REFERENCES races(id),
     driver_code     TEXT,
     lap_number      INTEGER,
     lap_time_ms     INTEGER,
@@ -36,7 +42,7 @@ CREATE TABLE IF NOT EXISTS laps (
 );
 
 CREATE TABLE IF NOT EXISTS driver_standings (
-    id          INTEGER PRIMARY KEY,
+    id          BIGINT PRIMARY KEY DEFAULT nextval('driver_standings_id_seq'),
     year        INTEGER,
     round       INTEGER,
     driver_code TEXT,
@@ -48,7 +54,7 @@ CREATE TABLE IF NOT EXISTS driver_standings (
 );
 
 CREATE TABLE IF NOT EXISTS constructor_standings (
-    id       INTEGER PRIMARY KEY,
+    id       BIGINT PRIMARY KEY DEFAULT nextval('constructor_standings_id_seq'),
     year     INTEGER,
     round    INTEGER,
     team     TEXT,
