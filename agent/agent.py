@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agent.tools import (
     get_race_results,
+    get_qualifying_results,
     get_driver_standings,
     get_constructor_standings,
     get_lap_times,
@@ -48,6 +49,7 @@ Guidelines:
 # Map tool names to actual functions
 TOOL_REGISTRY = {
     "get_race_results": get_race_results,
+    "get_qualifying_results": get_qualifying_results,
     "get_driver_standings": get_driver_standings,
     "get_constructor_standings": get_constructor_standings,
     "get_lap_times": get_lap_times,

@@ -7,10 +7,9 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database.db import get_connection, init_db
 
-# Enable FastF1 cache
 fastf1.Cache.enable_cache("./data/cache")
 
-SESSIONS_TO_INGEST = ["R", "Q"]  # Race and Qualifying
+SESSIONS_TO_INGEST = ["R", "Q"]
 
 
 def to_ms(td):
@@ -97,6 +96,44 @@ def ingest_laps(con, race_id, session):
             print(f"    ⚠️  Lap row error: {e}")
 
 
+def ingest_qualifying_results(con, race_id, session):
+    """Insert qualifying results (Q1/Q2/Q3 times) into qualifying_results table."""
+    if session.results is None or session.results.empty:
+        return
+
+    results = session.results
+
+    for _, row in results.iterrows():
+        try:
+            q1_ms = to_ms(row.get("Q1"))
+            q2_ms = to_ms(row.get("Q2"))
+            q3_ms = to_ms(row.get("Q3"))
+
+            # Best time is the fastest of whichever sessions the driver completed
+            times = [t for t in [q1_ms, q2_ms, q3_ms] if t is not None]
+            best_time_ms = min(times) if times else None
+
+            con.execute("""
+                INSERT INTO qualifying_results
+                    (race_id, position, driver_code, driver_name, team,
+                     q1_ms, q2_ms, q3_ms, best_time_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
+            """, [
+                race_id,
+                int(row["Position"]) if pd.notna(row.get("Position")) else None,
+                row.get("Abbreviation"),
+                row.get("FullName"),
+                row.get("TeamName"),
+                q1_ms,
+                q2_ms,
+                q3_ms,
+                best_time_ms
+            ])
+        except Exception as e:
+            print(f"    ⚠️  Qualifying result row error: {e}")
+
+
 def ingest_season(year: int):
     con = get_connection()
     print(f"\n📅 Ingesting season {year}...")
@@ -120,7 +157,6 @@ def ingest_season(year: int):
                 session = fastf1.get_session(year, round_num, session_type)
                 session.load(telemetry=False, weather=False, messages=False)
 
-                # Insert race record
                 con.execute("""
                     INSERT INTO races (year, round, gp_name, country, session, date)
                     VALUES (?, ?, ?, ?, ?, ?)
@@ -134,6 +170,9 @@ def ingest_season(year: int):
 
                 if session_type == "R":
                     ingest_results(con, race_id, session)
+
+                if session_type == "Q":
+                    ingest_qualifying_results(con, race_id, session)
 
                 ingest_laps(con, race_id, session)
                 print(f"    ✅ Done")

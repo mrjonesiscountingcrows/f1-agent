@@ -62,3 +62,18 @@ CREATE TABLE IF NOT EXISTS constructor_standings (
     position INTEGER,
     wins     INTEGER
 );
+
+CREATE SEQUENCE IF NOT EXISTS qualifying_results_id_seq;
+
+CREATE TABLE IF NOT EXISTS qualifying_results (
+    id              BIGINT PRIMARY KEY DEFAULT nextval('qualifying_results_id_seq'),
+    race_id         BIGINT REFERENCES races(id),
+    position        INTEGER,
+    driver_code     TEXT,
+    driver_name     TEXT,
+    team            TEXT,
+    q1_ms           INTEGER,
+    q2_ms           INTEGER,
+    q3_ms           INTEGER,
+    best_time_ms    INTEGER
+);

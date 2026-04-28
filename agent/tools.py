@@ -39,6 +39,7 @@ def resolve_gp_name(gp_name: str) -> str:
 
 import sys
 import os
+import pandas as pd
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.db import get_connection
@@ -408,6 +409,53 @@ def get_season_calendar(year: int) -> dict:
         con.close()
 
 # ─────────────────────────────────────────────
+# 7. QUALIFYING RESULTS
+# ─────────────────────────────────────────────
+
+def get_qualifying_results(year: int, gp_name: str) -> dict:
+    """
+    Get qualifying results with Q1/Q2/Q3 times for all drivers.
+    Example: get_qualifying_results(2024, 'British')
+    """
+    gp_name = resolve_gp_name(gp_name)
+    con = get_connection()
+    try:
+        df = con.execute("""
+            SELECT
+                q.position,
+                q.driver_code,
+                q.driver_name,
+                q.team,
+                q.q1_ms,
+                q.q2_ms,
+                q.q3_ms,
+                q.best_time_ms
+            FROM qualifying_results q
+            JOIN races r ON q.race_id = r.id
+            WHERE r.year = ?
+              AND lower(r.gp_name) LIKE lower(?)
+            ORDER BY q.position
+        """, [year, f"%{gp_name}%"]).df()
+
+        if df.empty:
+            return {"error": f"No qualifying data found for {gp_name} {year}"}
+
+        # Convert ms to readable times
+        for col, label in [("q1_ms", "q1"), ("q2_ms", "q2"),
+                            ("q3_ms", "q3"), ("best_time_ms", "best_time")]:
+            df[label] = df[col].apply(
+                lambda x: ms_to_laptime(int(x)) if pd.notna(x) else None
+            )
+
+        return {
+            "race": f"{gp_name} {year}",
+            "qualifying": df[["position", "driver_code", "driver_name",
+                               "team", "q1", "q2", "q3", "best_time"]].to_dict(orient="records")
+        }
+    finally:
+        con.close()
+
+# ─────────────────────────────────────────────
 # OPENAI TOOL DEFINITIONS
 # ─────────────────────────────────────────────
 
@@ -422,6 +470,21 @@ TOOL_DEFINITIONS = [
                 "properties": {
                     "year": {"type": "integer", "description": "Season year e.g. 2024"},
                     "gp_name": {"type": "string", "description": "GP name e.g. 'Bahrain', 'Monaco', 'Silverstone'"}
+                },
+                "required": ["year", "gp_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_qualifying_results",
+            "description": "Get qualifying results with Q1, Q2, and Q3 times for all drivers at a specific Grand Prix. Use for questions about pole position, qualifying pace, grid positions, or Q1/Q2/Q3 eliminations.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "year": {"type": "integer", "description": "Season year e.g. 2024"},
+                    "gp_name": {"type": "string", "description": "GP name e.g. 'British', 'Monaco'"}
                 },
                 "required": ["year", "gp_name"]
             }

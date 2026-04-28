@@ -6,6 +6,7 @@ import streamlit as st
 from agent.agent import ask
 from agent.tools import (
     get_race_results,
+    get_qualifying_results,
     get_driver_standings,
     get_lap_times,
     get_fastest_laps,
@@ -14,6 +15,7 @@ from agent.tools import (
 )
 from plots.charts import (
     plot_lap_times,
+    plot_qualifying_results,
     plot_head_to_head,
     plot_tyre_strategy,
     plot_race_results,
@@ -117,6 +119,13 @@ def try_generate_plot(question: str, answer: str):
                     data = get_tyre_strategy(year, gp)
                     return plot_tyre_strategy(data)
 
+        # Qualifying results
+        if any(w in q for w in ["qualifying", "quali", "pole", "grid", "q1", "q2", "q3"]):
+            for gp in GP_NAMES:
+                if gp in q:
+                    data = get_qualifying_results(year, gp)
+                    return plot_qualifying_results(data)
+        
         # Head to head
         if any(w in q for w in ["compare", "vs", "versus", "head-to-head", "faster"]):
             found = [d for d in DRIVER_CODES if d in q.upper()]

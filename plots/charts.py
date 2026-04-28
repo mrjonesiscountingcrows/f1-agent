@@ -269,3 +269,48 @@ def plot_fastest_laps(fastest_data: dict) -> go.Figure:
     )
 
     return fig
+
+# ─────────────────────────────────────────────
+# 7. QUALIFYING RESULTS
+# ─────────────────────────────────────────────
+
+def plot_qualifying_results(qualifying_data: dict) -> go.Figure:
+    """
+    Horizontal bar chart of qualifying times per driver.
+    Input: result from get_qualifying_results()
+    """
+    qualifying = qualifying_data.get("qualifying", [])
+    if not qualifying:
+        return None
+
+    df = pd.DataFrame(qualifying)
+
+    def laptime_to_seconds(lt):
+        try:
+            m, s = lt.split(":")
+            return int(m) * 60 + float(s)
+        except Exception:
+            return None
+
+    df["best_time_s"] = df["best_time"].apply(laptime_to_seconds)
+    df = df.dropna(subset=["best_time_s"])
+    df = df.sort_values("best_time_s", ascending=False)
+
+    fig = go.Figure(go.Bar(
+        x=df["best_time_s"],
+        y=df["driver_code"],
+        orientation="h",
+        marker_color="#FF6B6B",
+        text=df["best_time"],
+        textposition="outside"
+    ))
+
+    fig.update_layout(
+        title=f"Qualifying Times · {qualifying_data.get('race')}",
+        xaxis_title="Best Time (s)",
+        yaxis_title="Driver",
+        template="plotly_dark",
+        height=500
+    )
+
+    return fig
