@@ -1,0 +1,11 @@
+venv/
+data/
+database/f1.db
+.env
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.streamlit/
+.DS_Store
+Thumbs.db
