@@ -1,3 +1,42 @@
+# Common user-friendly names mapped to official FastF1 GP names
+GP_ALIASES = {
+    "silverstone": "british",
+    "spa": "belgian",
+    "monza": "italian",
+    "monaco": "monaco",
+    "suzuka": "japanese",
+    "interlagos": "brazilian",
+    "sao paulo": "brazilian",
+    "cota": "united states",
+    "austin": "united states",
+    "usa": "united states",
+    "vegas": "las vegas",
+    "abu dhabi": "abu dhabi",
+    "baku": "azerbaijan",
+    "jeddah": "saudi",
+    "imola": "emilia",
+    "zandvoort": "dutch",
+    "montreal": "canadian",
+    "barcelona": "spanish",
+    "budapest": "hungarian",
+    "spielberg": "austrian",
+    "red bull ring": "austrian",
+    "shanghai": "chinese",
+    "melbourne": "australian",
+    "sakhir": "bahrain",
+    "lusail": "qatar",
+    "marina bay": "singapore",
+}
+
+def resolve_gp_name(gp_name: str) -> str:
+    """Resolve user-friendly GP names to their official names in the database."""
+    lower = gp_name.lower().strip()
+    # Check alias map first
+    for alias, official in GP_ALIASES.items():
+        if alias in lower:
+            return official
+    return gp_name
+
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -24,6 +63,7 @@ def get_race_results(year: int, gp_name: str) -> dict:
     Get the final classified results for a specific race.
     Example: get_race_results(2024, 'Bahrain')
     """
+    gp_name = resolve_gp_name(gp_name)
     con = get_connection()
     try:
         df = con.execute("""
@@ -124,6 +164,7 @@ def get_lap_times(year: int, gp_name: str, driver_code: str) -> dict:
     Get all lap times for a driver in a specific race.
     Example: get_lap_times(2024, 'Monaco', 'VER')
     """
+    gp_name = resolve_gp_name(gp_name)
     con = get_connection()
     try:
         df = con.execute("""
@@ -175,6 +216,7 @@ def get_fastest_laps(year: int, gp_name: str) -> dict:
     Get the fastest lap per driver in a race, sorted by lap time.
     Example: get_fastest_laps(2024, 'Silverstone')
     """
+    gp_name = resolve_gp_name(gp_name)
     con = get_connection()
     try:
         df = con.execute("""
@@ -218,6 +260,7 @@ def get_tyre_strategy(year: int, gp_name: str) -> dict:
     which compounds they used and for how many laps.
     Example: get_tyre_strategy(2024, 'Monaco')
     """
+    gp_name = resolve_gp_name(gp_name)
     con = get_connection()
     try:
         df = con.execute("""
@@ -272,6 +315,7 @@ def compare_drivers(year: int, gp_name: str, driver1: str, driver2: str) -> dict
     Head-to-head lap time comparison between two drivers in a race.
     Example: compare_drivers(2024, 'Bahrain', 'VER', 'HAM')
     """
+    gp_name = resolve_gp_name(gp_name)
     con = get_connection()
     try:
         df = con.execute("""
