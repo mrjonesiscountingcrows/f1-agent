@@ -102,7 +102,7 @@ def ingest_results(con, race_id, session):
 def ingest_laps(con, race_id, session):
     if session.laps is None or session.laps.empty:
         return
-    cols = ["Driver", "LapNumber", "LapTime",
+    cols = ["Driver", "LapNumber", "LapTime", "Position",
             "Sector1Time", "Sector2Time", "Sector3Time",
             "Compound", "TyreLife", "IsPersonalBest"]
     laps = session.laps[[c for c in cols if c in session.laps.columns]].copy()
@@ -113,8 +113,8 @@ def ingest_laps(con, race_id, session):
                 INSERT INTO laps
                     (race_id, driver_code, lap_number, lap_time_ms,
                      sector1_ms, sector2_ms, sector3_ms,
-                     compound, tyre_life, is_personal_best)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     compound, tyre_life, is_personal_best, position)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT DO NOTHING
             """, [
                 race_id,
@@ -126,7 +126,8 @@ def ingest_laps(con, race_id, session):
                 to_ms(lap.get("Sector3Time")),
                 lap.get("Compound"),
                 int(lap["TyreLife"]) if pd.notna(lap.get("TyreLife")) else None,
-                bool(lap.get("IsPersonalBest", False))
+                bool(lap.get("IsPersonalBest", False)),
+                int(lap["Position"]) if pd.notna(lap.get("Position")) else None
             ])
         except Exception as e:
             print(f"    ⚠️  Lap row error: {e}")

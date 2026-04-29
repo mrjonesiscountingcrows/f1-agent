@@ -20,7 +20,10 @@ from agent.tools import (
     get_season_calendar,
     get_driver_profile,          
     get_driver_career_stats,      
-    get_driver_team_history,      
+    get_driver_team_history,
+    get_season_points_progression,    
+    get_tyre_degradation,            
+    get_race_position_changes,       
     TOOL_DEFINITIONS
 )
 
@@ -75,7 +78,10 @@ TOOL_REGISTRY = {
     "get_season_calendar": get_season_calendar,
     "get_driver_profile": get_driver_profile,            
     "get_driver_career_stats": get_driver_career_stats,   
-    "get_driver_team_history": get_driver_team_history,   
+    "get_driver_team_history": get_driver_team_history,
+    "get_season_points_progression": get_season_points_progression,   
+    "get_tyre_degradation": get_tyre_degradation,                     
+    "get_race_position_changes": get_race_position_changes,           
 }
 
 

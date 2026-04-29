@@ -314,3 +314,151 @@ def plot_qualifying_results(qualifying_data: dict) -> go.Figure:
     )
 
     return fig
+
+# ─────────────────────────────────────────────
+# 8. SEASON POINTS PROGRESSION
+# ─────────────────────────────────────────────
+
+def plot_season_points_progression(progression_data: dict) -> go.Figure:
+    """
+    Line chart of cumulative championship points per driver across a season.
+    Input: result from get_season_points_progression()
+    """
+    progression = progression_data.get("progression", {})
+    rounds = progression_data.get("rounds", [])
+    if not progression or not rounds:
+        return None
+
+    round_nums = [str(r["round"]) for r in rounds]
+    round_labels = [r["gp_name"].replace(" Grand Prix", "") for r in rounds]
+
+    fig = go.Figure()
+
+    colours = px.colors.qualitative.Set3
+
+    for i, (driver, data) in enumerate(progression.items()):
+        points = [data["points_per_round"].get(rn, None) for rn in round_nums]
+        fig.add_trace(go.Scatter(
+            x=round_labels,
+            y=points,
+            mode="lines+markers",
+            name=driver,
+            line=dict(color=colours[i % len(colours)], width=2),
+            marker=dict(size=5),
+            hovertemplate=f"<b>{driver}</b><br>%{{x}}<br>Points: %{{y}}<extra></extra>"
+        ))
+
+    fig.update_layout(
+        title=f"{progression_data.get('year')} Championship Points Progression",
+        xaxis_title="Race",
+        yaxis_title="Cumulative Points",
+        template="plotly_dark",
+        legend_title="Driver",
+        hovermode="x unified",
+        xaxis=dict(tickangle=-45),
+        height=500
+    )
+
+    return fig
+
+
+# ─────────────────────────────────────────────
+# 9. TYRE DEGRADATION CURVES
+# ─────────────────────────────────────────────
+
+def plot_tyre_degradation(degradation_data: dict) -> go.Figure:
+    """
+    Line chart of average lap time vs tyre age per compound.
+    Input: result from get_tyre_degradation()
+    """
+    degradation = degradation_data.get("degradation", {})
+    if not degradation:
+        return None
+
+    fig = go.Figure()
+
+    for compound, data in degradation.items():
+        if not data:
+            continue
+        colour = COMPOUND_COLOURS.get(compound, "#888888")
+        df = pd.DataFrame(data)
+        fig.add_trace(go.Scatter(
+            x=df["tyre_life"],
+            y=df["lap_time_s"],
+            mode="lines+markers",
+            name=compound,
+            line=dict(color=colour, width=2),
+            marker=dict(size=5, color=colour),
+            hovertemplate=(
+                f"<b>{compound}</b><br>"
+                "Tyre Age: %{x} laps<br>"
+                "Avg Lap: %{y:.3f}s<extra></extra>"
+            )
+        ))
+
+    fig.update_layout(
+        title=f"Tyre Degradation · {degradation_data.get('race')}",
+        xaxis_title="Tyre Age (laps)",
+        yaxis_title="Avg Lap Time (s)",
+        template="plotly_dark",
+        legend_title="Compound",
+        hovermode="x unified",
+        height=450
+    )
+
+    return fig
+
+
+# ─────────────────────────────────────────────
+# 10. RACE POSITION CHANGES
+# ─────────────────────────────────────────────
+
+def plot_race_position_changes(position_data: dict) -> go.Figure:
+    """
+    Bumpchart showing lap by lap position for all drivers.
+    Input: result from get_race_position_changes()
+    """
+    drivers = position_data.get("drivers", {})
+    if not drivers:
+        return None
+
+    fig = go.Figure()
+    colours = px.colors.qualitative.Light24
+
+    for i, (driver, laps) in enumerate(drivers.items()):
+        if not laps:
+            continue
+        df = pd.DataFrame(laps)
+        fig.add_trace(go.Scatter(
+            x=df["lap_number"],
+            y=df["position"],
+            mode="lines",
+            name=driver,
+            line=dict(color=colours[i % len(colours)], width=1.5),
+            hovertemplate=(
+                f"<b>{driver}</b><br>"
+                "Lap: %{x}<br>"
+                "Position: %{y}<extra></extra>"
+            )
+        ))
+
+    total_laps = position_data.get("total_laps", 60)
+
+    fig.update_layout(
+        title=f"Race Position Changes · {position_data.get('race')}",
+        xaxis_title="Lap",
+        yaxis_title="Position",
+        yaxis=dict(
+            autorange="reversed",      # P1 at top
+            tickmode="linear",
+            tick0=1,
+            dtick=1
+        ),
+        template="plotly_dark",
+        legend_title="Driver",
+        hovermode="x unified",
+        height=600,
+        xaxis=dict(range=[1, total_laps])
+    )
+
+    return fig

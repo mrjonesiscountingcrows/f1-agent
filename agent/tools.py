@@ -643,6 +643,168 @@ def get_driver_team_history(driver_code: str) -> dict:
         con.close()
 
 # ─────────────────────────────────────────────
+# 13. SEASON POINTS PROGRESSION
+# ─────────────────────────────────────────────
+
+def get_season_points_progression(year: int) -> dict:
+    """
+    Get cumulative points per driver per round across a season.
+    Used for championship progression charts.
+    Example: get_season_points_progression(2024)
+    """
+    con = get_connection()
+    try:
+        df = con.execute("""
+            SELECT
+                ra.round,
+                ra.gp_name,
+                r.driver_code,
+                r.driver_name,
+                r.team,
+                r.points
+            FROM results r
+            JOIN races ra ON r.race_id = ra.id
+            WHERE ra.year = ?
+              AND ra.session = 'R'
+              AND r.points > 0
+            ORDER BY ra.round, r.driver_code
+        """, [year]).df()
+
+        if df.empty:
+            return {"error": f"No points data found for {year}"}
+
+        # Calculate cumulative points per driver across rounds
+        df = df.sort_values(["driver_code", "round"])
+        df["cumulative_points"] = df.groupby("driver_code")["points"].cumsum()
+
+        # Only keep top 10 drivers by final points to keep chart readable
+        final_points = df.groupby("driver_code")["cumulative_points"].max()
+        top10 = final_points.nlargest(10).index.tolist()
+        df = df[df["driver_code"].isin(top10)]
+
+        # Build per-round structure
+        rounds = df[["round", "gp_name"]].drop_duplicates().sort_values("round")
+        rounds_list = rounds.to_dict(orient="records")
+
+        progression = {}
+        for driver in top10:
+            d = df[df["driver_code"] == driver].sort_values("round")
+            progression[driver] = {
+                "team": d["team"].iloc[0],
+                "points_per_round": dict(
+                    zip(d["round"].astype(str), d["cumulative_points"].tolist())
+                )
+            }
+
+        return {
+            "year": year,
+            "rounds": rounds_list,
+            "progression": progression
+        }
+    finally:
+        con.close()
+
+# ─────────────────────────────────────────────
+# 14. TYRE DEGRADATION
+# ─────────────────────────────────────────────
+
+def get_tyre_degradation(year: int, gp_name: str) -> dict:
+    """
+    Get average lap time per tyre age per compound for a race.
+    Used to visualise tyre degradation curves.
+    Example: get_tyre_degradation(2024, 'British')
+    """
+    gp_name = resolve_gp_name(gp_name)
+    con = get_connection()
+    try:
+        df = con.execute("""
+            SELECT
+                l.compound,
+                l.tyre_life,
+                l.lap_time_ms,
+                l.driver_code
+            FROM laps l
+            JOIN races ra ON l.race_id = ra.id
+            WHERE ra.year = ?
+              AND lower(ra.gp_name) LIKE lower(?)
+              AND ra.session = 'R'
+              AND l.compound IS NOT NULL
+              AND l.compound NOT IN ('UNKNOWN', 'INTERMEDIATE', 'WET')
+              AND l.lap_time_ms IS NOT NULL
+              AND l.tyre_life IS NOT NULL
+              AND l.tyre_life <= 40
+            ORDER BY l.compound, l.tyre_life
+        """, [year, f"%{gp_name}%"]).df()
+
+        if df.empty:
+            return {"error": f"No tyre data found for {gp_name} {year}"}
+
+        # Filter out outliers — laps more than 10% slower than median per compound
+        result = {}
+        for compound in df["compound"].unique():
+            c_df = df[df["compound"] == compound].copy()
+            median = c_df["lap_time_ms"].median()
+            c_df = c_df[c_df["lap_time_ms"] <= median * 1.07]
+
+            # Average lap time per tyre age
+            avg = c_df.groupby("tyre_life")["lap_time_ms"].mean().reset_index()
+            avg["lap_time_s"] = (avg["lap_time_ms"] / 1000).round(3)
+
+            result[compound] = avg[["tyre_life", "lap_time_s"]].to_dict(orient="records")
+
+        return {
+            "race": f"{gp_name} {year}",
+            "degradation": result
+        }
+    finally:
+        con.close()
+
+# ─────────────────────────────────────────────
+# 15. RACE POSITION CHANGES
+# ─────────────────────────────────────────────
+
+def get_race_position_changes(year: int, gp_name: str) -> dict:
+    """
+    Get lap by lap position for all drivers in a race.
+    Used for race position change bumpcharts.
+    Example: get_race_position_changes(2024, 'British')
+    """
+    gp_name = resolve_gp_name(gp_name)
+    con = get_connection()
+    try:
+        df = con.execute("""
+            SELECT
+                l.driver_code,
+                l.lap_number,
+                l.position
+            FROM laps l
+            JOIN races ra ON l.race_id = ra.id
+            WHERE ra.year = ?
+              AND lower(ra.gp_name) LIKE lower(?)
+              AND ra.session = 'R'
+              AND l.position IS NOT NULL
+              AND l.lap_number IS NOT NULL
+            ORDER BY l.lap_number, l.position
+        """, [year, f"%{gp_name}%"]).df()
+
+        if df.empty:
+            return {"error": f"No position data found for {gp_name} {year}. Position data may not be available for this race."}
+
+        # Structure as driver -> list of (lap, position)
+        drivers = {}
+        for driver in df["driver_code"].unique():
+            d = df[df["driver_code"] == driver].sort_values("lap_number")
+            drivers[driver] = d[["lap_number", "position"]].to_dict(orient="records")
+
+        return {
+            "race": f"{gp_name} {year}",
+            "total_laps": int(df["lap_number"].max()),
+            "drivers": drivers
+        }
+    finally:
+        con.close()
+
+# ─────────────────────────────────────────────
 # OPENAI TOOL DEFINITIONS
 # ─────────────────────────────────────────────
 
@@ -854,6 +1016,50 @@ TOOL_DEFINITIONS = [
                     "driver_code": {"type": "string", "description": "Three letter driver code e.g. 'ALO', 'HAM'"}
                 },
                 "required": ["driver_code"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_season_points_progression",
+            "description": "Get cumulative championship points per driver across all rounds of a season. Use for questions about how the championship evolved, points gaps, or momentum shifts.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "year": {"type": "integer", "description": "Season year e.g. 2024"}
+                },
+                "required": ["year"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_tyre_degradation",
+            "description": "Get tyre degradation curves showing how lap times increase as tyre age increases per compound. Use for questions about tyre deg, compound performance, or which tyre lasted longest.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "year": {"type": "integer", "description": "Season year e.g. 2024"},
+                    "gp_name": {"type": "string", "description": "GP name e.g. 'British', 'Monaco'"}
+                },
+                "required": ["year", "gp_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_race_position_changes",
+            "description": "Get lap by lap race positions for all drivers. Use for questions about position changes, overtakes, or how a race unfolded lap by lap.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "year": {"type": "integer", "description": "Season year e.g. 2024"},
+                    "gp_name": {"type": "string", "description": "GP name e.g. 'British', 'Monaco'"}
+                },
+                "required": ["year", "gp_name"]
             }
         }
     }

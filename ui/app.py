@@ -11,7 +11,10 @@ from agent.tools import (
     get_lap_times,
     get_fastest_laps,
     get_tyre_strategy,
-    compare_drivers
+    compare_drivers,
+    get_season_points_progression,   
+    get_tyre_degradation,             
+    get_race_position_changes,        
 )
 from plots.charts import (
     plot_lap_times,
@@ -20,7 +23,10 @@ from plots.charts import (
     plot_tyre_strategy,
     plot_race_results,
     plot_driver_standings,
-    plot_fastest_laps
+    plot_fastest_laps,
+    plot_season_points_progression,   
+    plot_tyre_degradation,            
+    plot_race_position_changes,     
 )
 
 # ─────────────────────────────────────────────
@@ -167,6 +173,28 @@ def try_generate_plot(question: str, answer: str):
         if any(w in q for w in ["standing", "standings", "championship", "champion"]):
             data = get_driver_standings(year)
             return plot_driver_standings(data)
+        
+        # Season points progression
+        if any(w in q for w in ["progression", "championship battle",
+                                  "points race", "how the championship"]):
+            data = get_season_points_progression(year)
+            return plot_season_points_progression(data)
+
+        # Tyre degradation
+        if any(w in q for w in ["degradation", "deg", "tyre life",
+                                  "how long", "tyre performance"]):
+            for gp in GP_NAMES:
+                if gp in q:
+                    data = get_tyre_degradation(year, gp)
+                    return plot_tyre_degradation(data)
+
+        # Race position changes
+        if any(w in q for w in ["position changes", "positions", "bumpchart",
+                                  "how the race unfolded", "lap by lap"]):
+            for gp in GP_NAMES:
+                if gp in q:
+                    data = get_race_position_changes(year, gp)
+                    return plot_race_position_changes(data)
 
     except Exception:
         pass
