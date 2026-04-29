@@ -542,6 +542,107 @@ def get_sprint_qualifying_results(year: int, gp_name: str) -> dict:
         con.close()
 
 # ─────────────────────────────────────────────
+# 10. DRIVER PROFILE
+# ─────────────────────────────────────────────
+
+def get_driver_profile(driver_code: str) -> dict:
+    """
+    Get a driver's profile including nationality, number, and basic info.
+    Example: get_driver_profile('VER')
+    """
+    con = get_connection()
+    try:
+        df = con.execute("""
+            SELECT
+                d.driver_code,
+                d.driver_number,
+                d.full_name,
+                d.first_name,
+                d.last_name,
+                d.nationality,
+                d.country_code,
+                d.date_of_birth
+            FROM drivers d
+            WHERE upper(d.driver_code) = upper(?)
+        """, [driver_code]).df()
+
+        if df.empty:
+            return {"error": f"No profile found for driver {driver_code}"}
+
+        return {"profile": df.to_dict(orient="records")[0]}
+    finally:
+        con.close()
+
+
+# ─────────────────────────────────────────────
+# 11. DRIVER CAREER STATS
+# ─────────────────────────────────────────────
+
+def get_driver_career_stats(driver_code: str) -> dict:
+    """
+    Get career stats for a driver — wins, poles, podiums, points, championships.
+    Example: get_driver_career_stats('HAM')
+    """
+    con = get_connection()
+    try:
+        df = con.execute("""
+            SELECT
+                cs.driver_code,
+                cs.total_races,
+                cs.total_wins,
+                cs.total_poles,
+                cs.total_podiums,
+                cs.total_points,
+                cs.championships,
+                cs.first_season,
+                cs.last_season
+            FROM driver_career_stats cs
+            WHERE upper(cs.driver_code) = upper(?)
+        """, [driver_code]).df()
+
+        if df.empty:
+            return {"error": f"No career stats found for {driver_code}"}
+
+        return {"career_stats": df.to_dict(orient="records")[0]}
+    finally:
+        con.close()
+
+
+# ─────────────────────────────────────────────
+# 12. DRIVER TEAM HISTORY
+# ─────────────────────────────────────────────
+
+def get_driver_team_history(driver_code: str) -> dict:
+    """
+    Get the team history for a driver across all ingested seasons.
+    Example: get_driver_team_history('ALO')
+    """
+    con = get_connection()
+    try:
+        df = con.execute("""
+            SELECT
+                th.year,
+                th.team,
+                th.races,
+                th.points,
+                th.wins,
+                th.podiums
+            FROM driver_team_history th
+            WHERE upper(th.driver_code) = upper(?)
+            ORDER BY th.year DESC
+        """, [driver_code]).df()
+
+        if df.empty:
+            return {"error": f"No team history found for {driver_code}"}
+
+        return {
+            "driver": driver_code.upper(),
+            "team_history": df.to_dict(orient="records")
+        }
+    finally:
+        con.close()
+
+# ─────────────────────────────────────────────
 # OPENAI TOOL DEFINITIONS
 # ─────────────────────────────────────────────
 
@@ -711,6 +812,48 @@ TOOL_DEFINITIONS = [
                     "year": {"type": "integer", "description": "Season year e.g. 2024"}
                 },
                 "required": ["year"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_driver_profile",
+            "description": "Get a driver's profile including nationality, driver number, and personal info. Use for questions like 'where is Verstappen from' or 'what number does Hamilton use'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "driver_code": {"type": "string", "description": "Three letter driver code e.g. 'VER', 'HAM'"}
+                },
+                "required": ["driver_code"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_driver_career_stats",
+            "description": "Get career statistics for a driver including total wins, poles, podiums, points, and championships across all ingested seasons (2023-2025).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "driver_code": {"type": "string", "description": "Three letter driver code e.g. 'VER', 'HAM'"}
+                },
+                "required": ["driver_code"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_driver_team_history",
+            "description": "Get the team history for a driver across all ingested seasons, including points, wins, and podiums per team per year.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "driver_code": {"type": "string", "description": "Three letter driver code e.g. 'ALO', 'HAM'"}
+                },
+                "required": ["driver_code"]
             }
         }
     }

@@ -359,5 +359,6 @@ def ingest_season(year: int):
 
 if __name__ == "__main__":
     init_db()
+    ingest_season(2023)
     ingest_season(2024)
     ingest_season(2025)

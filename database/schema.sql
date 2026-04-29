@@ -104,3 +104,45 @@ CREATE TABLE IF NOT EXISTS sprint_qualifying_results (
     sq3_ms          INTEGER,
     best_time_ms    INTEGER
 );
+
+CREATE SEQUENCE IF NOT EXISTS drivers_id_seq;
+CREATE SEQUENCE IF NOT EXISTS driver_career_stats_id_seq;
+CREATE SEQUENCE IF NOT EXISTS driver_team_history_id_seq;
+
+CREATE TABLE IF NOT EXISTS drivers (
+    id              BIGINT PRIMARY KEY DEFAULT nextval('drivers_id_seq'),
+    driver_code     TEXT UNIQUE,
+    driver_number   INTEGER,
+    full_name       TEXT,
+    first_name      TEXT,
+    last_name       TEXT,
+    nationality     TEXT,
+    country_code    TEXT,
+    date_of_birth   DATE,
+    headshot_url    TEXT
+);
+
+CREATE TABLE IF NOT EXISTS driver_career_stats (
+    id              BIGINT PRIMARY KEY DEFAULT nextval('driver_career_stats_id_seq'),
+    driver_code     TEXT UNIQUE,
+    total_wins      INTEGER DEFAULT 0,
+    total_poles     INTEGER DEFAULT 0,
+    total_podiums   INTEGER DEFAULT 0,
+    total_points    REAL DEFAULT 0,
+    total_races     INTEGER DEFAULT 0,
+    championships   INTEGER DEFAULT 0,
+    first_season    INTEGER,
+    last_season     INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS driver_team_history (
+    id              BIGINT PRIMARY KEY DEFAULT nextval('driver_team_history_id_seq'),
+    driver_code     TEXT,
+    year            INTEGER,
+    team            TEXT,
+    races           INTEGER,
+    points          REAL,
+    wins            INTEGER,
+    podiums         INTEGER,
+    UNIQUE(driver_code, year, team)
+);
