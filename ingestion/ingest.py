@@ -226,7 +226,6 @@ def ingest_session(con, year, round_num, gp_name, country, event_date, session_t
     """, [year, round_num, session_type]).fetchone()
 
     if existing:
-        # Check if we actually have data for this session
         race_id = existing[0]
         has_data = False
 
@@ -245,7 +244,15 @@ def ingest_session(con, year, round_num, gp_name, country, event_date, session_t
         elif session_type == "SQ":
             count = con.execute("SELECT COUNT(*) FROM sprint_qualifying_results WHERE race_id=?",
                                 [race_id]).fetchone()[0]
-            has_data = count > 0
+            # For SQ, also check that times aren't all null
+            if count > 0:
+                nulls = con.execute("""
+                    SELECT COUNT(*) FROM sprint_qualifying_results
+                    WHERE race_id=? AND best_time_ms IS NOT NULL
+                """, [race_id]).fetchone()[0]
+                has_data = nulls > 0  # Only skip if we have actual times
+            else:
+                has_data = False
 
         if has_data:
             print(f"  ⏩ Skipping {gp_name} | {session_type} — already ingested")
@@ -256,7 +263,17 @@ def ingest_session(con, year, round_num, gp_name, country, event_date, session_t
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             session = fastf1.get_session(year, round_num, session_type)
-            load_session_with_timeout(session, SESSION_LOAD_TIMEOUT)
+
+            # SQ needs messages=True to calculate sector times correctly
+            if session_type == "SQ":
+                signal.signal(signal.SIGALRM, _timeout_handler)
+                signal.alarm(SESSION_LOAD_TIMEOUT)
+                try:
+                    session.load(telemetry=False, weather=False, messages=True)
+                finally:
+                    signal.alarm(0)
+            else:
+                load_session_with_timeout(session, SESSION_LOAD_TIMEOUT)
 
             # Insert race record
             con.execute("""
@@ -287,7 +304,7 @@ def ingest_session(con, year, round_num, gp_name, country, event_date, session_t
                 ingest_laps(con, race_id, session)
 
             print(f"    ✅ Done")
-            return  # Success — exit retry loop
+            return
 
         except TimeoutError:
             print(f"    ⏱️  Timed out (attempt {attempt}/{MAX_RETRIES})")

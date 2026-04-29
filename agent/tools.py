@@ -26,6 +26,7 @@ GP_ALIASES = {
     "sakhir": "bahrain",
     "lusail": "qatar",
     "marina bay": "singapore",
+    "miami": "miami"
 }
 
 def resolve_gp_name(gp_name: str) -> str:
@@ -591,7 +592,7 @@ TOOL_DEFINITIONS = [
             }
         }
     },
-    
+
     {
         "type": "function",
         "function": {
