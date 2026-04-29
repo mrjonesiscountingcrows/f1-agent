@@ -109,7 +109,12 @@ def try_generate_plot(question: str, answer: str):
     Returns a plotly figure or None.
     """
     q = resolve_query_gp(question.lower())
-    year = 2025 if "2025" in q else 2024
+    if "2025" in q:
+        year = 2025
+    elif "2023" in q:
+        year = 2023
+    else:
+        year = 2024
 
     try:
         # Tyre strategy
