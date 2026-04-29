@@ -231,29 +231,34 @@ def ingest_session(con, year, round_num, gp_name, country, event_date, session_t
         has_data = False
 
         if session_type == "R":
-            count = con.execute("SELECT COUNT(*) FROM results WHERE race_id=?",
+            result_count = con.execute("SELECT COUNT(*) FROM results WHERE race_id=?",
                                 [race_id]).fetchone()[0]
-            has_data = count > 0
+            lap_count = con.execute("SELECT COUNT(*) FROM laps WHERE race_id=?",
+                                [race_id]).fetchone()[0]
+            has_data = result_count > 0 and lap_count > 0
+
         elif session_type == "Q":
-            count = con.execute("SELECT COUNT(*) FROM qualifying_results WHERE race_id=?",
+            qual_count = con.execute("SELECT COUNT(*) FROM qualifying_results WHERE race_id=?",
                                 [race_id]).fetchone()[0]
-            has_data = count > 0
+            lap_count = con.execute("SELECT COUNT(*) FROM laps WHERE race_id=?",
+                                [race_id]).fetchone()[0]
+            has_data = qual_count > 0 and lap_count > 0
+
         elif session_type == "S":
             count = con.execute("SELECT COUNT(*) FROM sprint_results WHERE race_id=?",
                                 [race_id]).fetchone()[0]
-            has_data = count > 0
-        elif session_type == "SQ":
-            count = con.execute("SELECT COUNT(*) FROM sprint_qualifying_results WHERE race_id=?",
+            lap_count = con.execute("SELECT COUNT(*) FROM laps WHERE race_id=?",
                                 [race_id]).fetchone()[0]
-            # For SQ, also check that times aren't all null
-            if count > 0:
-                nulls = con.execute("""
-                    SELECT COUNT(*) FROM sprint_qualifying_results
-                    WHERE race_id=? AND best_time_ms IS NOT NULL
-                """, [race_id]).fetchone()[0]
-                has_data = nulls > 0  # Only skip if we have actual times
-            else:
-                has_data = False
+            has_data = count > 0 and lap_count > 0
+
+        elif session_type == "SQ":
+            nulls = con.execute("""
+                SELECT COUNT(*) FROM sprint_qualifying_results
+                WHERE race_id=? AND best_time_ms IS NOT NULL
+            """, [race_id]).fetchone()[0]
+            lap_count = con.execute("SELECT COUNT(*) FROM laps WHERE race_id=?",
+                                [race_id]).fetchone()[0]
+            has_data = nulls > 0 and lap_count > 0
 
         if has_data:
             print(f"  ⏩ Skipping {gp_name} | {session_type} — already ingested")
