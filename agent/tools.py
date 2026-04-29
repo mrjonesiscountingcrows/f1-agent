@@ -456,6 +456,91 @@ def get_qualifying_results(year: int, gp_name: str) -> dict:
         con.close()
 
 # ─────────────────────────────────────────────
+# 8. SPRINT RESULTS
+# ─────────────────────────────────────────────
+
+def get_sprint_results(year: int, gp_name: str) -> dict:
+    """
+    Get sprint race results for a sprint weekend GP.
+    Example: get_sprint_results(2024, 'Chinese')
+    """
+    gp_name = resolve_gp_name(gp_name)
+    con = get_connection()
+    try:
+        df = con.execute("""
+            SELECT
+                s.position,
+                s.driver_code,
+                s.driver_name,
+                s.team,
+                s.points,
+                s.status
+            FROM sprint_results s
+            JOIN races r ON s.race_id = r.id
+            WHERE r.year = ?
+              AND lower(r.gp_name) LIKE lower(?)
+              AND r.session = 'S'
+            ORDER BY s.position
+        """, [year, f"%{gp_name}%"]).df()
+
+        if df.empty:
+            return {"error": f"No sprint results found for {gp_name} {year}. It may not be a sprint weekend."}
+
+        return {
+            "race": f"{gp_name} {year} Sprint",
+            "results": df.to_dict(orient="records")
+        }
+    finally:
+        con.close()
+
+
+# ─────────────────────────────────────────────
+# 9. SPRINT QUALIFYING RESULTS
+# ─────────────────────────────────────────────
+
+def get_sprint_qualifying_results(year: int, gp_name: str) -> dict:
+    """
+    Get sprint qualifying results (SQ1/SQ2/SQ3) for a sprint weekend GP.
+    Example: get_sprint_qualifying_results(2024, 'Miami')
+    """
+    gp_name = resolve_gp_name(gp_name)
+    con = get_connection()
+    try:
+        df = con.execute("""
+            SELECT
+                sq.position,
+                sq.driver_code,
+                sq.driver_name,
+                sq.team,
+                sq.sq1_ms,
+                sq.sq2_ms,
+                sq.sq3_ms,
+                sq.best_time_ms
+            FROM sprint_qualifying_results sq
+            JOIN races r ON sq.race_id = r.id
+            WHERE r.year = ?
+              AND lower(r.gp_name) LIKE lower(?)
+            ORDER BY sq.position
+        """, [year, f"%{gp_name}%"]).df()
+
+        if df.empty:
+            return {"error": f"No sprint qualifying data found for {gp_name} {year}."}
+
+        for col, label in [("sq1_ms", "sq1"), ("sq2_ms", "sq2"),
+                            ("sq3_ms", "sq3"), ("best_time_ms", "best_time")]:
+            df[label] = df[col].apply(
+                lambda x: ms_to_laptime(int(x)) if pd.notna(x) else None
+            )
+
+        return {
+            "race": f"{gp_name} {year} Sprint Qualifying",
+            "qualifying": df[["position", "driver_code", "driver_name",
+                               "team", "sq1", "sq2", "sq3", "best_time"]].to_dict(orient="records")
+        }
+    finally:
+        con.close()
+
+# ─────────────────────────────────────────────
 # OPENAI TOOL DEFINITIONS
 # ─────────────────────────────────────────────
 
@@ -490,6 +575,39 @@ TOOL_DEFINITIONS = [
             }
         }
     },
+    
+    {
+        "type": "function",
+        "function": {
+            "name": "get_sprint_results",
+            "description": "Get sprint race results for a sprint weekend. Use for questions about sprint races, sprint winners, or sprint points. Sprint weekends in 2024 were: China, Miami, Austria, USA, Brazil, Qatar.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "year": {"type": "integer", "description": "Season year e.g. 2024"},
+                    "gp_name": {"type": "string", "description": "GP name e.g. 'Chinese', 'Miami'"}
+                },
+                "required": ["year", "gp_name"]
+            }
+        }
+    },
+    
+    {
+        "type": "function",
+        "function": {
+            "name": "get_sprint_qualifying_results",
+            "description": "Get sprint qualifying results with SQ1/SQ2/SQ3 times. Use for questions about sprint grid positions or sprint qualifying pace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "year": {"type": "integer", "description": "Season year e.g. 2024"},
+                    "gp_name": {"type": "string", "description": "GP name e.g. 'Chinese', 'Miami'"}
+                },
+                "required": ["year", "gp_name"]
+            }
+        }
+    },
+
     {
         "type": "function",
         "function": {

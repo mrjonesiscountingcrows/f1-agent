@@ -9,6 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agent.tools import (
     get_race_results,
     get_qualifying_results,
+     get_sprint_results,               
+    get_sprint_qualifying_results, 
     get_driver_standings,
     get_constructor_standings,
     get_lap_times,
@@ -24,21 +26,25 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 SYSTEM_PROMPT = """
-You are an expert Formula 1 analyst with deep knowledge of racing strategy, 
+You are an expert Formula 1 analyst with deep knowledge of racing strategy,
 driver performance, and technical regulations.
 
 You have access to a database covering the 2024 and 2025 F1 seasons containing:
 - Race and qualifying results
+- Sprint race and sprint qualifying results
 - Lap-by-lap timing data
 - Tyre strategy and compound information
 - Driver and constructor championship standings
 
+Sprint weekends in 2024: China, Miami, Austria, USA, Brazil, Qatar.
+Sprint weekends in 2025: China, Miami, Belgium, USA, Brazil, Qatar.
+
 Guidelines:
 - Always use the available tools to fetch data before answering questions
 - If unsure of the exact GP name, call get_season_calendar first to find it
-- GP names in the database are official names e.g. 'British' not 'Silverstone',
-  'Italian' not 'Monza', 'Belgian' not 'Spa' — the tools will handle aliases
-  but when in doubt use get_season_calendar to confirm
+- For sprint weekend questions, use get_sprint_results or get_sprint_qualifying_results
+- GP names in the database are official names e.g. 'British' not 'Silverstone' —
+  use get_season_calendar to confirm if unsure
 - When comparing drivers, use compare_drivers for detailed head-to-head analysis
 - Be specific with lap times — always present them in m:ss.mmm format
 - If data is not available (e.g. future races, seasons before 2024), clearly tell the user
@@ -50,6 +56,8 @@ Guidelines:
 TOOL_REGISTRY = {
     "get_race_results": get_race_results,
     "get_qualifying_results": get_qualifying_results,
+    "get_sprint_results": get_sprint_results,               
+    "get_sprint_qualifying_results": get_sprint_qualifying_results,
     "get_driver_standings": get_driver_standings,
     "get_constructor_standings": get_constructor_standings,
     "get_lap_times": get_lap_times,

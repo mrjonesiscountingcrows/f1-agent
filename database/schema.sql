@@ -77,3 +77,30 @@ CREATE TABLE IF NOT EXISTS qualifying_results (
     q3_ms           INTEGER,
     best_time_ms    INTEGER
 );
+
+CREATE SEQUENCE IF NOT EXISTS sprint_results_id_seq;
+CREATE SEQUENCE IF NOT EXISTS sprint_qualifying_results_id_seq;
+
+CREATE TABLE IF NOT EXISTS sprint_results (
+    id              BIGINT PRIMARY KEY DEFAULT nextval('sprint_results_id_seq'),
+    race_id         BIGINT REFERENCES races(id),
+    position        INTEGER,
+    driver_code     TEXT,
+    driver_name     TEXT,
+    team            TEXT,
+    points          REAL,
+    status          TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sprint_qualifying_results (
+    id              BIGINT PRIMARY KEY DEFAULT nextval('sprint_qualifying_results_id_seq'),
+    race_id         BIGINT REFERENCES races(id),
+    position        INTEGER,
+    driver_code     TEXT,
+    driver_name     TEXT,
+    team            TEXT,
+    sq1_ms          INTEGER,
+    sq2_ms          INTEGER,
+    sq3_ms          INTEGER,
+    best_time_ms    INTEGER
+);
