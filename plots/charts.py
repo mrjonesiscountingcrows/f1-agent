@@ -462,3 +462,83 @@ def plot_race_position_changes(position_data: dict) -> go.Figure:
     )
 
     return fig
+
+# ─────────────────────────────────────────────
+# 11. MULTI-DRIVER FASTEST LAP COMPARISON
+# ─────────────────────────────────────────────
+
+def plot_fastest_laps_for_drivers(data: dict) -> go.Figure:
+    """
+    Grouped bar chart comparing fastest lap sectors for multiple drivers.
+    Input: result from get_fastest_laps_for_drivers()
+    """
+    comparison = data.get("comparison", [])
+    if not comparison:
+        return None
+
+    df = pd.DataFrame(comparison)
+
+    def laptime_to_seconds(lt):
+        try:
+            m, s = lt.split(":")
+            return int(m) * 60 + float(s)
+        except Exception:
+            return None
+
+    # Sector times in seconds for plotting
+    for col in ["best_sector1", "best_sector2", "best_sector3"]:
+        df[f"{col}_s"] = df[col].apply(laptime_to_seconds)
+
+    drivers = df["driver_code"].tolist()
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Bar(
+        name="Sector 1",
+        x=drivers,
+        y=df["best_sector1_s"],
+        marker_color="#3498DB",
+        text=df["best_sector1"],
+        textposition="inside"
+    ))
+
+    fig.add_trace(go.Bar(
+        name="Sector 2",
+        x=drivers,
+        y=df["best_sector2_s"],
+        marker_color="#2ECC71",
+        text=df["best_sector2"],
+        textposition="inside"
+    ))
+
+    fig.add_trace(go.Bar(
+        name="Sector 3",
+        x=drivers,
+        y=df["best_sector3_s"],
+        marker_color="#E74C3C",
+        text=df["best_sector3"],
+        textposition="inside"
+    ))
+
+    # Add gap annotation below each driver
+    for i, row in df.iterrows():
+        fig.add_annotation(
+            x=row["driver_code"],
+            y=0,
+            text=row["gap_to_fastest"],
+            showarrow=False,
+            yshift=-20,
+            font=dict(size=11, color="white")
+        )
+
+    fig.update_layout(
+        title=f"Fastest Lap Sector Comparison · {data.get('race')}",
+        xaxis_title="Driver",
+        yaxis_title="Time (s)",
+        barmode="stack",
+        template="plotly_dark",
+        legend_title="Sector",
+        height=450
+    )
+
+    return fig

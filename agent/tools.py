@@ -805,6 +805,67 @@ def get_race_position_changes(year: int, gp_name: str) -> dict:
         con.close()
 
 # ─────────────────────────────────────────────
+# 16. MULTI-DRIVER FASTEST LAP COMPARISON
+# ─────────────────────────────────────────────
+
+def get_fastest_laps_for_drivers(year: int, gp_name: str,
+                                  driver_codes: list) -> dict:
+    """
+    Get fastest lap for a specific list of drivers in a race.
+    Example: get_fastest_laps_for_drivers(2024, 'British', ['VER', 'HAM', 'NOR'])
+    """
+    gp_name = resolve_gp_name(gp_name)
+    con = get_connection()
+    try:
+        placeholders = ", ".join(["?" for _ in driver_codes])
+        upper_codes = [d.upper() for d in driver_codes]
+
+        df = con.execute(f"""
+            SELECT
+                l.driver_code,
+                MIN(l.lap_time_ms) as fastest_lap_ms,
+                MIN(l.sector1_ms)  as best_sector1_ms,
+                MIN(l.sector2_ms)  as best_sector2_ms,
+                MIN(l.sector3_ms)  as best_sector3_ms
+            FROM laps l
+            JOIN races ra ON l.race_id = ra.id
+            WHERE ra.year = ?
+              AND lower(ra.gp_name) LIKE lower(?)
+              AND ra.session = 'R'
+              AND upper(l.driver_code) IN ({placeholders})
+              AND l.lap_time_ms IS NOT NULL
+            GROUP BY l.driver_code
+            ORDER BY fastest_lap_ms
+        """, [year, f"%{gp_name}%"] + upper_codes).df()
+
+        if df.empty:
+            return {"error": f"No lap data found for drivers at {gp_name} {year}"}
+
+        df["fastest_lap"]  = df["fastest_lap_ms"].apply(ms_to_laptime)
+        df["best_sector1"] = df["best_sector1_ms"].apply(
+            lambda x: ms_to_laptime(int(x)) if pd.notna(x) else None)
+        df["best_sector2"] = df["best_sector2_ms"].apply(
+            lambda x: ms_to_laptime(int(x)) if pd.notna(x) else None)
+        df["best_sector3"] = df["best_sector3_ms"].apply(
+            lambda x: ms_to_laptime(int(x)) if pd.notna(x) else None)
+
+        gap_base = df["fastest_lap_ms"].iloc[0]
+        df["gap_to_fastest"] = df["fastest_lap_ms"].apply(
+            lambda x: "Fastest" if x == gap_base
+            else f"+{(x - gap_base)/1000:.3f}s"
+        )
+
+        return {
+            "race": f"{gp_name} {year}",
+            "comparison": df[[
+                "driver_code", "fastest_lap", "best_sector1",
+                "best_sector2", "best_sector3", "gap_to_fastest"
+            ]].to_dict(orient="records")
+        }
+    finally:
+        con.close()
+
+# ─────────────────────────────────────────────
 # OPENAI TOOL DEFINITIONS
 # ─────────────────────────────────────────────
 
